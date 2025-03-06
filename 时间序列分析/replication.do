@@ -220,3 +220,46 @@ egranger tb6m tb3m
 reg tb6m tb3m
 egranger tb6m tb3m, ecm
 
+
+*******************
+* ar(1)随机过程
+*******************
+clear
+set obs 500
+set seed 123456
+gen t = _n
+tsset t
+gen u = rnormal()  // 白噪声 
+gen ar = 1
+gen ma = 1
+gen arma = 1
+forvalues i = 2/`=_N' {
+    replace ar = 1 + 0.5*(ar[_n-1]-1) + u in `i'  // ar1
+    replace ma = 1 + 0.5*u + 0.2*u[_n-1] in `i'  // ma1
+    replace arma = 1 + 0.5*(ar[_n-1]-1) + 0.5*u + 0.2*u[_n-1] in `i' // arma(1,1)
+}
+twoway (line ar t) (line ma t) (line arma t) , yline(1)
+
+ac ar, lags(20)
+pac ar, lags(20)
+ac ma, lags(20)
+pac ma, lags(20)
+ac arma, lags(20)
+pac arma, lags(20)
+
+**************************
+* 美国gdp的arima识别
+**************************
+use gdp, clear
+gen yq = yq(year, quarter) // 生成日期
+format %tq yq
+tsset yq
+gen lgdp = log(gdp)
+
+* gdp差分的检验
+dfuller d.lgdp, noconstant
+dfuller d.lgdp, drift 
+dfuller d.lgdp, trend 
+
+ac d.lgdp, lags(20)
+pac d.lgdp, lags(20)
