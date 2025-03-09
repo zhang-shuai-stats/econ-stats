@@ -263,3 +263,10 @@ dfuller d.lgdp, trend
 
 ac d.lgdp, lags(20)
 pac d.lgdp, lags(20)
+
+**************************
+* 美国gdp的arima估计
+**************************
+arima lgdp, arima(1,1,2)
+arima lgdp, arima(1,1,0)
+arima lgdp, arima(0,1,2)
