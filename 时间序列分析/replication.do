@@ -222,7 +222,7 @@ egranger tb6m tb3m, ecm
 
 
 *******************
-* ar(1)随机过程
+* arma随机过程
 *******************
 clear
 set obs 500
@@ -235,8 +235,8 @@ gen ma = 1
 gen arma = 1
 forvalues i = 2/`=_N' {
     replace ar = 1 + 0.5*(ar[_n-1]-1) + u in `i'  // ar1
-    replace ma = 1 + 0.5*u + 0.2*u[_n-1] in `i'  // ma1
-    replace arma = 1 + 0.5*(ar[_n-1]-1) + 0.5*u + 0.2*u[_n-1] in `i' // arma(1,1)
+    replace ma = 1 + u + 0.2*u[_n-1] in `i'  // ma1
+    replace arma = 1 + 0.5*(ar[_n-1]-1) + u + 0.2*u[_n-1] in `i' // arma(1,1)
 }
 twoway (line ar t) (line ma t) (line arma t) , yline(1)
 
@@ -267,6 +267,43 @@ pac d.lgdp, lags(20)
 **************************
 * 美国gdp的arima估计
 **************************
+use gdp, clear
+gen yq = yq(year, quarter) // 生成日期
+format %tq yq
+tsset yq
+gen lgdp = log(gdp)
+
 arima lgdp, arima(1,1,2)
 arima lgdp, arima(1,1,0)
+predict res_ar1, residual
+
 arima lgdp, arima(0,1,2)
+predict res_ma2, residual
+
+* 残差的检验
+ac res_ar1
+pac res_ar1
+
+ac res_ma2
+pac res_ma2
+
+**************************
+* 加拿大货币供给与利率的var
+**************************
+use money, clear
+gen time = _n
+tsset time 
+keep if time < 37
+
+var m1 r, lags(1/4) dfk
+sureg (m1 r = l(1/4).m1 l(1/4).r), dfk
+reg m1 l(1/4).m1 l(1/4).r 
+reg r l(1/4).m1 l(1/4).r 
+
+* irf 脉冲响应函数
+var m1 r, lags(1/4) dfk
+irf create order1, step(20) set(myirf1, replace)
+irf graph oirf, impulse(m1) response(r)
+irf graph oirf, impulse(m1) response(m1)
+irf graph oirf, impulse(r) response(m1)
+irf graph oirf, impulse(r) response(r)
