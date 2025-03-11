@@ -288,6 +288,27 @@ ac res_ma2
 pac res_ma2
 
 **************************
+* 美国零售价格指数wpi的arima估计
+**************************
+use wpi1, clear
+tsset t
+
+line wpi t
+line d.wpi t
+dfuller d.wpi
+dfuller d.wpi,  trend
+
+ac d.wpi
+pac d.wpi
+
+arima wpi, arima(1,1,1)
+predict res, residual
+
+* 残差的检验
+ac res
+pac res
+
+**************************
 * 加拿大货币供给与利率的var
 **************************
 use money, clear
@@ -296,14 +317,87 @@ tsset time
 keep if time < 37
 
 var m1 r, lags(1/4) dfk
-sureg (m1 r = l(1/4).m1 l(1/4).r), dfk
+estimates store var
+sureg (m1 r = l(1/4).m1 l(1/4).r), dfk corr
+estimates store sur
 reg m1 l(1/4).m1 l(1/4).r 
+estimates store ols_m1
 reg r l(1/4).m1 l(1/4).r 
+estimates store ols_r
+etable, estimates(var sur ols_m1 ols_r) showstars column(estimates)
+
+var m1 r, lags(1/2) 
+
+**************************
+* 加拿大货币供给与利率的var预测
+**************************
+use money, clear
+gen time = _n
+tsset time 
+
+var m1 r if time < 37, lags(1/2)
+predict m1_hat
+var r m1 if time < 37, lags(1/2)
+predict r_hat 
 
 * irf 脉冲响应函数
-var m1 r, lags(1/4) dfk
-irf create order1, step(20) set(myirf1, replace)
+var m1 r, lags(1/2) 
+irf create irf1, step(20) set(myirf1, replace)
 irf graph oirf, impulse(m1) response(r)
 irf graph oirf, impulse(m1) response(m1)
 irf graph oirf, impulse(r) response(m1)
 irf graph oirf, impulse(r) response(r)
+
+***************************************
+* Seemingly Unrelated Regressions (SUR) 
+****************************************
+use sur_scores, clear
+
+global y1list math
+global y2list read
+global x1list female prog science
+global x2list female socst
+global x1 female
+
+describe $y1list $y2list $x1list $x2list
+summarize $y1list $y2list $x1list $x2list
+
+* OLS regressions
+reg $y1list $x1list
+reg $y2list $x2list
+
+* SUR model
+sureg ($y1list $x1list) ($y2list $x2list), corr
+
+* Testing of cross-equation constraints
+test [$y1list]$x1 = [$y2list]$x1
+
+* SUR model with cross-equation constraint
+constraint 1 [$y1list]$x1 = [$y2list]$x1
+sureg ($y1list $x1list)($y2list $x2list), constraints(1) 
+
+***************************************
+* var的一个例子
+****************************************
+use lutkepohl2, clear 
+var dln_inv dln_inc dln_consump if qtr<=tq(1978q4), lutstats dfk 
+irf create irf2, step(20) set(myirf2, replace)
+irf graph oirf, impulse(dln_inv dln_inc dln_consump) response(dln_inv)
+irf graph oirf, impulse(dln_inv dln_inc dln_consump) response(dln_inc)
+irf graph oirf, impulse(dln_inv dln_inc dln_consump) response(dln_consump)
+
+**************************
+* 美国零售价格指数wpi的arch估计
+**************************
+use wpi1, clear 
+
+line d.ln_wpi t
+
+reg d.ln_wpi
+estat archlm, lags(1)
+
+* arch(1)
+arch d.ln_wpi, arch(1) 
+
+* garch(1,1)
+arch d.ln_wpi, arch(1) garch(1)
