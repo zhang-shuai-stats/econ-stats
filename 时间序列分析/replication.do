@@ -1,3 +1,6 @@
+clear
+cd /Users/zhangshuai/Desktop/time
+
 *******************
 * 不带漂移项的随机游走
 *******************
@@ -327,6 +330,8 @@ estimates store ols_r
 etable, estimates(var sur ols_m1 ols_r) showstars column(estimates)
 
 var m1 r, lags(1/2) 
+varlmar, mlag(5)
+vargranger
 
 **************************
 * 加拿大货币供给与利率的var预测
@@ -339,6 +344,10 @@ var m1 r if time < 37, lags(1/2)
 predict m1_hat
 var r m1 if time < 37, lags(1/2)
 predict r_hat 
+
+var r m1 if time < 37, lags(1/2)
+fcast compute f_, step(4)
+fcast graph f_m1, observed 
 
 * irf 脉冲响应函数
 var m1 r, lags(1/2) 
@@ -386,9 +395,9 @@ irf graph oirf, impulse(dln_inv dln_inc dln_consump) response(dln_inv)
 irf graph oirf, impulse(dln_inv dln_inc dln_consump) response(dln_inc)
 irf graph oirf, impulse(dln_inv dln_inc dln_consump) response(dln_consump)
 
-**************************
+****************************
 * 美国零售价格指数wpi的arch估计
-**************************
+****************************
 use wpi1, clear 
 
 line d.ln_wpi t
@@ -401,3 +410,53 @@ arch d.ln_wpi, arch(1)
 
 * garch(1,1)
 arch d.ln_wpi, arch(1) garch(1)
+
+************************************
+* 招聘指数（hwi）与失业率（un）之间的关系 
+************************************
+use hwi, clear
+tsset time
+var hwi unrate, lags(1/25) 
+
+* 残差自相关检验
+varlmar, mlag(5)
+
+* 格兰杰因果检验
+vargranger
+
+* 脉冲响应函数
+irf create irf3, step(20) set(myirf3, replace)
+irf graph oirf, impulse(hwi) response(unrate)
+irf graph oirf, impulse(unrate) response(hwi)
+
+* 如果重新选择之后项
+varsoc hwi unrate, lutstats
+
+* 如果使用4阶
+var hwi unrate, lags(1/4) 
+fcast compute f_, step(6)
+fcast graph f_hwi, observed 
+
+************************************
+* 日元汇率的arima建模
+************************************
+use yen, clear
+gen ym = ym(year, month) // 生成日期
+format %tm ym
+tsset ym
+
+line exchange ym
+line d.exchange ym
+dfuller d.exchange
+dfuller d.exchange, lags(12) trend
+
+ac d.exchange
+pac d.exchange
+
+arima exchange, arima(0,1,1)
+estat acplot
+predict res, residual
+
+* 残差的检验
+ac res
+pac res
