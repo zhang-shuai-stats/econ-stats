@@ -454,7 +454,7 @@ ac d.exchange
 pac d.exchange
 
 arima exchange, arima(0,1,1)
-estat acplot
+estat acplot  //拟合值的自相关图
 predict res, residual
 
 * 残差的检验
